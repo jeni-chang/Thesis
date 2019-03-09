@@ -27,26 +27,26 @@ public class Cloud {
 		double ans = 0;
 		
 		// compute expectation value probability
+		double remain = 1;
 		for(int i=1; i<cp_layer.size(); i++) {
-			double remain = 1;
-			for(int j=0; j<i; j++) remain = remain * (1-pb.get(cp_layer.get(j)));
-			remain = pb.get(cp_layer.get(i)) * remain;
-			remain_ls.add(remain);
+			
+//			for(int j=0; j<i; j++) remain = remain * (1-pb.get(cp_layer.get(j)));
+			
+			remain_ls.add(remain*pb.get(cp_layer.get(i)));
+			remain *=(1- pb.get(cp_layer.get(i)));
 		}
 		
-		
+		double ttime = 0;
+		for(int j=1; j<=bw.size()-2; j++) ttime = ttime + f/bw.get(j) ;
 		
 		// compute expectation value
 		for(int i=1; i<cp_layer.size(); i++) {
 			cost = 0;
-			// transmission time
-			for(int j=1; j<=bw.size()-2; j++) cost = cost + f/bw.get(j) ;
 			for(int j=0; j<=cp_layer.get(i); j++) cost = cost + lc.get(j);
 			for(int j=0; j<=i; j++) cost = cost + cc.get(cp_layer.get(j));
 			ans = ans + remain_ls.get(i-1)*(cost/com.get(com.size()-1));
 		}
-		
-		
+		ans = ans +ttime;		
 		
 		return ans;
 //		System.out.println("Cloud  ==>" + ans);

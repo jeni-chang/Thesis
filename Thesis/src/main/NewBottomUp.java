@@ -17,7 +17,7 @@ public class NewBottomUp {
 	private double f; 
 	private double threshold;
 	
-	public NewBottomUp(List<Table> table, List<Double> pb, List<Double> lc, List<Double> cc, List<Double> r, List<Double> bw, List<Double> com, Double f, int layer, int server, int cp, List<Double> ls, List<Double> cs, List<Double> sp, double threshold) {
+	public NewBottomUp(List<Table> table, List<Double> pb, List<Double> lc, List<Double> cc, List<Double> r, List<Double> bw, List<Double> com, Double f, List<Double> ls, List<Double> cs, List<Double> sp, double threshold) {
 		this.table = table;
 		this.pb =pb;
 		this.lc = lc;
@@ -130,7 +130,8 @@ public class NewBottomUp {
 	}
 	
 	public void fix_pb(Table t, int version) {
-		List<Double> ans_tmp;
+		List<Double> ans_tmp = new ArrayList<>();
+//		System.out.println("fuck ===> " + t.toString());
 		for(double d : t.getPb(version).keySet()) {
 			double min = Double.MAX_VALUE;
 			ans_tmp = new ArrayList<>();
@@ -145,6 +146,7 @@ public class NewBottomUp {
 						ans_tmp.add(ls.get(1));
 						ans_tmp.add(ls.get(2));
 						ans_tmp.add(ls.get(3));
+//						ans_tmp.add(-1.0);
 					}
 				}
 			}

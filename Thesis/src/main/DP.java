@@ -1,6 +1,7 @@
 package main;
 
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
 
 public class DP {
@@ -18,16 +19,21 @@ public class DP {
 	public static void recursive(int layer, int server, int cp) {
 		
 		int loc = cp*x*y + (server-1)*x + (layer+1);
-		for(Table t: table) {
-			if(t.getID() == loc) {
-				t.setcheck(true);
-				break;
-			}
-		}
+//		int flag = 0;
+//		for(Table t: table) {
+//			if(t.getID() == loc ) {
+//				if(t.getcheck()) flag = 1;
+//				t.setcheck(true);
+//				break;
+//			}
+//		}
+		if(loc<0)System.out.println("ffffffffff==> " + loc);
+		if(table.get(loc-1).getcheck()) return;
+		table.get(loc-1).setcheck(true);
 		
-		if(server != 1) {
+		if(server >= 2 && cp >= 1) {
 			for(int i=0; i<=layer; i++) {
-				if(check(layer, server, cp, i, server-1, cp-1)) recursive(i, server-1, cp-1);
+				if(check(layer, server, cp, i, server-1, cp-1) ) recursive(i, server-1, cp-1);
 				if(check(layer, server, cp, i, server-1, cp)) recursive(i, server-1, cp);
 			}
 		}

@@ -1,5 +1,6 @@
 package main;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -16,15 +17,15 @@ public class Main {
 	static Table heu_opt_2 = null;
 	
 	static int layer = 22;
-	static int server = 4;
+	static int server = 6;
 	static boolean compute_opt = false;
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 		// TODO Auto-generated method stub
 		List<Table> table = new ArrayList<>();
 		
 		double choose = 5;
-		double pipeline_threshold = 0.5; // sec
+		double pipeline_threshold = 100000; // sec
 		
 		
 		List<Double> pb = new ArrayList<>();
@@ -38,9 +39,9 @@ public class Main {
 		List<Double> ls = new ArrayList<>();
 		List<Double> cs = new ArrayList<>();
 		List<Double> sp = new ArrayList<>();
-		
-		double width = 2240;
-		double height = 2240;
+
+		double width = 500;
+		double height = 500;
 		double f = width*height*3*24; // width * height * RGB * bits 
 		f = f / 1000000; // convert to Mbits
 		
@@ -51,48 +52,52 @@ public class Main {
 		r = vgg.get_ratio();
 		ls = vgg.get_params(); // bits
 		cs = vgg.get_cp_params(); //bits
+		pb = vgg.get_pb();
 		
-		pb.add(0.0);
-		pb.add(0.0); // input layer
-		pb.add(0.4196);
-		pb.add(0.4006);
-		pb.add(0.3787);
-		pb.add(0.3545);
-		pb.add(0.3288);
-		pb.add(0.3024);
-		pb.add(0.276);
-		pb.add(0.2504);
-		pb.add(0.2262);
-		pb.add(0.2043);
-		pb.add(0.1853);
-		pb.add(0.17);
-		pb.add(0.159);
-		pb.add(0.159);
-		pb.add(0.1473);
-		pb.add(0.1452);
-		pb.add(0.1445);
-		pb.add(0.1446);
-		pb.add(0.1447);
-		pb.add(0.1452);
-		pb.add(1.0);
 		
 		bw.add(0.0);
-		bw.add(100000.0);
-		bw.add(500000.0); // Mbits
-		bw.add(500000.0);
+		bw.add(1000.0);
+		bw.add(8000.0); // Mbits
+		bw.add(8000.0);
+		bw.add(8000.0);
+		bw.add(8000.0);
+//		bw.add(32000.0);
+//		bw.add(64000.0);
+//		bw.add(128000.0);
+//		bw.add(256000.0);
+//		bw.add(300000.0);
+//		bw.add(600000.0);
 		bw.add(Double.MAX_VALUE);
 		
 		com.add(0.0);
-		com.add(5.0); // GFLOPS
-		com.add(100.0);
-		com.add(100.0);
-		com.add(150.0);
+//		com.add(0.1); // GFLOPS
+//		com.add(0.15);
+//		com.add(0.3);
+//		com.add(0.5);
+//		com.add(1.0);
+//		com.add(2.0);
+		com.add(100.0); 
+		com.add(10000.0);
+		com.add(10000.0);
+		com.add(10000.0);
+		com.add(10000.0);
+		com.add(10000.0);
+		
 		
 		sp.add(0.0);
-		sp.add(500.0); // Mbits
-		sp.add(5000000.0);
-		sp.add(5000000.0);
-		sp.add(5000000.0);
+		sp.add(50000.0); // Mbits
+//		sp.add(1000.0);
+//		sp.add(2000.0);
+//		sp.add(4000.0);
+//		sp.add(8000.0);
+//		sp.add(16000.0);
+//		sp.add(32000.0);
+		sp.add(900000.0);
+		sp.add(900000.0);
+		sp.add(900000.0);
+		sp.add(900000.0);
+		sp.add(900000.0);
+
 		
 		/* create table */
 		for (int c=0; c<=server; c++) {  // layer more than server
@@ -121,7 +126,7 @@ public class Main {
 		List<Double> heu_tmp = new ArrayList<>();
 		for(double d: pb) heu_tmp.add(d);
 		Collections.sort(heu_tmp);
-		int ceiling = (int) Math.ceil(layer/choose);
+		int ceiling = (int) Math.floor(layer/choose);
 		heu_pb_2.add(0.0);
 		for(int i=1; i<=choose-1; i++) heu_pb_2.add(heu_tmp.get(i*ceiling));
 		heu_pb_2.add(1.0);
@@ -147,10 +152,12 @@ public class Main {
 		
 		/*---------------------------------*/
 		/* compute Brute DP and heuristic DP */ 
+		System.out.println("Begin Recursive!!!!!!!");
 		new DP(table, layer, server);
 		for(int i=1; i<= server; i++) DP.recursive(layer, server, i);
+		System.out.println("End Recursive!!!!!!!");
 		
-		NewBottomUp btmup = new NewBottomUp(table, pb, lc, cc , r, bw, com, f, layer, server, 3, ls , cs, sp, pipeline_threshold);
+		NewBottomUp btmup = new NewBottomUp(table, pb, lc, cc , r, bw, com, f, ls , cs, sp, pipeline_threshold);
 		btmup.init_pb(server);
 		btmup.compute();
 		
@@ -166,10 +173,10 @@ public class Main {
 				if(t.getL() == layer && t.getS() == server && t.getC() == j) {
 //					System.out.print(t.toString() + "===>");
 //					System.out.println(t.getPb(0));
-////					
+//					
 //					System.out.print(t.toString() + "===>");
 //					System.out.println(t.getPb(1));
-////					
+//					
 //					System.out.print(t.toString() + "===>");
 //					System.out.println(t.get_ans_tmp(1));
 //
@@ -186,16 +193,28 @@ public class Main {
 			System.out.println(j + " check point Optimal Solution ==> " + opt_ls.get(0));
 			System.out.println(j + " check point Heuristic Optimal Solution Version 1 ==> " + heu_opt_ls.get(0));
 			System.out.println(j + " check point Heuristic Optimal Solution Version 2 ==> " + heu_opt_ls_2.get(0));
+			
+			System.out.printf("%d check point Optimal Solution ==> %.8f \n", j, opt_ls.get(0));
 		}
+
 		find_opt(opt_id_ls, table, 0);
 //		System.out.println("opt id ls ==> " + opt_id_ls);
 		find_opt(heu_opt_id_ls, table, 1);
 //		System.out.println("heu opt id ls ==> " + heu_opt_id_ls);
 		find_opt(heu_opt_id_ls_2,  table, 2);
 //		System.out.println("heu opt id ls 2 ==> " + heu_opt_id_ls_2);
-		System.out.println("opt R ==> " + opt + " ==> " + opt.getAns(0));
-		System.out.println("opt heu_opt_1_R ==> " + heu_opt + " ==> " + heu_opt.getAns(1));
-		System.out.println("opt heu_opt_2_R ==> " + heu_opt_2 + " ==> " + heu_opt_2.getAns(2));
+//		System.out.println("opt R ==> " + opt + " ==> " + opt.getAns(0));
+//		System.out.println("opt heu_opt_1_R ==> " + heu_opt + " ==> " + heu_opt.getAns(1));
+//		System.out.println("opt heu_opt_2_R ==> " + heu_opt_2 + " ==> " + heu_opt_2.getAns(2));
+		
+		System.out.print("opt R ==> " + opt);
+		System.out.printf(" ==> %.8f \n", opt.getAns(0));
+		
+		System.out.print("opt heu_opt_1_R ==> " + heu_opt);
+		System.out.printf(" ==> %.8f \n", heu_opt.getAns(1));
+		
+		System.out.print("opt heu_opt_1_R ==> " + heu_opt_2);
+		System.out.printf(" ==> %.8f \n", heu_opt_2.getAns(2));
 		
 		List<Table> cp_loc = new ArrayList<>();
 		List<Table> heu_cp_loc = new ArrayList<>();
