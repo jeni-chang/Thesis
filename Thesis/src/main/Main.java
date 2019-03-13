@@ -1,5 +1,6 @@
 package main;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,16 +17,23 @@ public class Main {
 	static Table heu_opt = null;
 	static Table heu_opt_2 = null;
 	
-	static int layer = 22;
-	static int server = 6;
+
 	static boolean compute_opt = false;
 	
 	public static void main(String[] args) throws IOException {
 		// TODO Auto-generated method stub
 		List<Table> table = new ArrayList<>();
 		
-		double choose = 5;
+		int layer = 22;
+//		int server = 6;
+//		double choose = 4;
+//		int random_server_num = 1;
+		int server = Integer.parseInt(args[0]);
+		double choose = Double.parseDouble(args[1]);
+		int random_server_num = Integer.parseInt(args[2]);
+		
 		double pipeline_threshold = 100000; // sec
+		
 		
 		
 		List<Double> pb = new ArrayList<>();
@@ -40,65 +48,40 @@ public class Main {
 		List<Double> cs = new ArrayList<>();
 		List<Double> sp = new ArrayList<>();
 
-		double width = 500;
-		double height = 500;
+		double width = 2240;
+		double height = 2240;
 		double f = width*height*3*24; // width * height * RGB * bits 
 		f = f / 1000000; // convert to Mbits
 		
 		VGG16 vgg = new VGG16(width, height, 3, 3);
 		vgg.data_compute();
-		lc = vgg.get_FLOPS(); // FLOPS
-		cc = vgg.get_cp_FLOPS(); // FLOPS
+		lc = vgg.get_FLOPS(); // GFLOPS
+		cc = vgg.get_cp_FLOPS(); // GFLOPS
 		r = vgg.get_ratio();
-		ls = vgg.get_params(); // bits
-		cs = vgg.get_cp_params(); //bits
+		ls = vgg.get_params(); // Mbits
+		cs = vgg.get_cp_params(); // Mbits
 		pb = vgg.get_pb();
+		vgg.random_data_compute(server);
+		bw = vgg.get_bw(); // Mbits
+		com = vgg.get_com(); // GFLOPS
+		sp = vgg.get_sp(); // Mbits
 		
-		
-		bw.add(0.0);
-		bw.add(1000.0);
-		bw.add(8000.0); // Mbits
-		bw.add(8000.0);
-		bw.add(8000.0);
-		bw.add(8000.0);
-//		bw.add(32000.0);
-//		bw.add(64000.0);
-//		bw.add(128000.0);
-//		bw.add(256000.0);
-//		bw.add(300000.0);
-//		bw.add(600000.0);
-		bw.add(Double.MAX_VALUE);
-		
-		com.add(0.0);
-//		com.add(0.1); // GFLOPS
-//		com.add(0.15);
-//		com.add(0.3);
-//		com.add(0.5);
-//		com.add(1.0);
-//		com.add(2.0);
-		com.add(100.0); 
-		com.add(10000.0);
-		com.add(10000.0);
-		com.add(10000.0);
-		com.add(10000.0);
-		com.add(10000.0);
-		
-		
-		sp.add(0.0);
-		sp.add(50000.0); // Mbits
-//		sp.add(1000.0);
-//		sp.add(2000.0);
-//		sp.add(4000.0);
-//		sp.add(8000.0);
-//		sp.add(16000.0);
-//		sp.add(32000.0);
-		sp.add(900000.0);
-		sp.add(900000.0);
-		sp.add(900000.0);
-		sp.add(900000.0);
-		sp.add(900000.0);
 
+		/* Write file*/
+//		String filename = "TEST.csv";
+		String filename = args[3];
+		StringBuilder ans = new StringBuilder();
 		
+		String listString = "";
+		for(double d: com) listString = listString + String.valueOf(d) + " -> ";
+		ans.append(listString);
+		ans.append(',');
+		
+		listString = "";
+		for(double d: bw) listString = listString + String.valueOf(d) + " -> ";
+		ans.append(listString);
+		ans.append(',');
+
 		/* create table */
 		for (int c=0; c<=server; c++) {  // layer more than server
 			for (int s=1; s<=server; s++) {
@@ -134,6 +117,7 @@ public class Main {
 		
 		/*---------------------------------------------------------------*/
 		/* compute opt probability combination */
+//		System.out.println("Start compute probability combination!!!");
 		if(compute_opt) pb_combin(PbCombin.pb_combin, pb, PbCombin.pb, layer);
 		else PbCombin.pb.add(1.0);
 		Collections.sort(PbCombin.pb);
@@ -149,13 +133,13 @@ public class Main {
 		pb_combin(PbCombin.heu_pb_combin_2, heu_pb_2, PbCombin.heu_pb_2, choose);
 		Collections.sort(PbCombin.heu_pb_2);
 //		System.out.println("PbCombin.heu_pb_2 ==> " + PbCombin.heu_pb_2);
-		
+//		System.out.println("Finish compute probability combination!!!");
 		/*---------------------------------*/
 		/* compute Brute DP and heuristic DP */ 
-		System.out.println("Begin Recursive!!!!!!!");
+//		System.out.println("Begin Recursive!!!!!!!");
 		new DP(table, layer, server);
 		for(int i=1; i<= server; i++) DP.recursive(layer, server, i);
-		System.out.println("End Recursive!!!!!!!");
+//		System.out.println("End Recursive!!!!!!!");
 		
 		NewBottomUp btmup = new NewBottomUp(table, pb, lc, cc , r, bw, com, f, ls , cs, sp, pipeline_threshold);
 		btmup.init_pb(server);
@@ -190,31 +174,36 @@ public class Main {
 					break;
 				}
 			}
-			System.out.println(j + " check point Optimal Solution ==> " + opt_ls.get(0));
-			System.out.println(j + " check point Heuristic Optimal Solution Version 1 ==> " + heu_opt_ls.get(0));
-			System.out.println(j + " check point Heuristic Optimal Solution Version 2 ==> " + heu_opt_ls_2.get(0));
+//			System.out.println(j + " check point Optimal Solution ==> " + opt_ls.get(0));
+//			System.out.println(j + " check point Heuristic Optimal Solution Version 1 ==> " + heu_opt_ls.get(0));
+//			System.out.println(j + " check point Heuristic Optimal Solution Version 2 ==> " + heu_opt_ls_2.get(0));
+//			
+//			System.out.printf("%d check point Optimal Solution ==> %.8f \n", j, opt_ls.get(0));
 			
-			System.out.printf("%d check point Optimal Solution ==> %.8f \n", j, opt_ls.get(0));
+			ans.append(heu_opt_ls.get(0));
+			ans.append(',');
 		}
 
-		find_opt(opt_id_ls, table, 0);
+		find_opt(opt_id_ls, table, 0, layer, server);
 //		System.out.println("opt id ls ==> " + opt_id_ls);
-		find_opt(heu_opt_id_ls, table, 1);
+		find_opt(heu_opt_id_ls, table, 1, layer, server);
 //		System.out.println("heu opt id ls ==> " + heu_opt_id_ls);
-		find_opt(heu_opt_id_ls_2,  table, 2);
+		find_opt(heu_opt_id_ls_2,  table, 2, layer, server);
 //		System.out.println("heu opt id ls 2 ==> " + heu_opt_id_ls_2);
 //		System.out.println("opt R ==> " + opt + " ==> " + opt.getAns(0));
 //		System.out.println("opt heu_opt_1_R ==> " + heu_opt + " ==> " + heu_opt.getAns(1));
 //		System.out.println("opt heu_opt_2_R ==> " + heu_opt_2 + " ==> " + heu_opt_2.getAns(2));
 		
-		System.out.print("opt R ==> " + opt);
-		System.out.printf(" ==> %.8f \n", opt.getAns(0));
+//		System.out.print("opt R ==> " + opt);
+//		System.out.printf(" ==> %.8f \n", opt.getAns(0));
+//		
+//		System.out.print("opt heu_opt_1_R ==> " + heu_opt);
+//		System.out.printf(" ==> %.8f \n", heu_opt.getAns(1));
+		ans.append(heu_opt.getAns(1));
+		ans.append(',');
 		
-		System.out.print("opt heu_opt_1_R ==> " + heu_opt);
-		System.out.printf(" ==> %.8f \n", heu_opt.getAns(1));
-		
-		System.out.print("opt heu_opt_1_R ==> " + heu_opt_2);
-		System.out.printf(" ==> %.8f \n", heu_opt_2.getAns(2));
+//		System.out.print("opt heu_opt_1_R ==> " + heu_opt_2);
+//		System.out.printf(" ==> %.8f \n", heu_opt_2.getAns(2));
 		
 		List<Table> cp_loc = new ArrayList<>();
 		List<Table> heu_cp_loc = new ArrayList<>();
@@ -225,17 +214,21 @@ public class Main {
 		
 		if(opt.getAns(0) != 0) {
 			get_cp_layer(cp_loc, cp_layer, Main.opt, table, 0);
-			System.out.println("opt cp loc ==> " + cp_loc);
+//			System.out.println("opt cp loc ==> " + cp_loc);
 		}
 		
 		if(heu_opt.getAns(1) != 0) {
 			get_cp_layer(heu_cp_loc, heu_cp_layer, Main.heu_opt, table, 1);
-			System.out.println("heu opt cp loc ==> " + heu_cp_loc);
+//			System.out.println("heu opt cp loc ==> " + heu_cp_loc);
 		}
+		listString = "";
+		for(Table t: heu_cp_loc) listString = listString + t.toString();
+		ans.append(listString);
+		ans.append(',');
 		
 		if(heu_opt_2.getAns(2) != 0) {
 			get_cp_layer(heu_cp_loc_2, heu_cp_layer_2, Main.heu_opt_2, table, 2);
-			System.out.println("heu opt cp loc 2 ==> " + heu_cp_loc_2);
+//			System.out.println("heu opt cp loc 2 ==> " + heu_cp_loc_2);
 		}
 		
 		
@@ -245,23 +238,56 @@ public class Main {
 		Collections.reverse(cp_layer);
 		Collections.reverse(heu_cp_layer);
 		Collections.reverse(heu_cp_layer_2);
-		System.out.println("Opt Ans ==> " + cp_layer);
-		System.out.println("Heuristic version 1 Ans ==> " + heu_cp_layer);
-		System.out.println("Heuristic version 2 Ans ==> " + heu_cp_layer_2);
+//		System.out.println("Opt Ans ==> " + cp_layer);
+//		System.out.println("Heuristic version 1 Ans ==> " + heu_cp_layer);
+//		System.out.println("Heuristic version 2 Ans ==> " + heu_cp_layer_2);
 		
 		/* Cloud only */
 		Cloud cloud = new Cloud(pb, lc, cc, bw , com, f);
-		System.out.println("Opt cloud ==> " + cloud.compute(cp_layer));
-		System.out.println("Heuristic version 1 cloud ==> " + cloud.compute(heu_cp_layer));
-		System.out.println("Heuristic version 2 cloud ==> " + cloud.compute(heu_cp_layer_2));
-		System.out.println("No check point cloud ==> " + cloud.init_compute());
+//		System.out.println("Opt cloud ==> " + cloud.compute(cp_layer));
+//		System.out.println("Heuristic version 1 cloud ==> " + cloud.compute(heu_cp_layer));
+		ans.append(cloud.compute(heu_cp_layer));
+		ans.append(',');
+//		System.out.println("Heuristic version 2 cloud ==> " + cloud.compute(heu_cp_layer_2));
+//		System.out.println("No check point cloud ==> " + cloud.init_compute());
 		
 		/* Device only */
 		Device device = new Device(pb, lc, cc, com);
-		System.out.println("Opt device ==> " + device.compute(cp_layer));
-		System.out.println("Heuristic version 1 device ==> " + device.compute(heu_cp_layer));
-		System.out.println("Heuristic version 2 device ==> " + device.compute(heu_cp_layer_2));
-		System.out.println("No check point device ==> " + device.init_compute());
+//		System.out.println("Opt device ==> " + device.compute(cp_layer));
+//		System.out.println("Heuristic version 1 device ==> " + device.compute(heu_cp_layer));
+		ans.append(device.compute(heu_cp_layer));
+		ans.append(',');
+//		System.out.println("Heuristic version 2 device ==> " + device.compute(heu_cp_layer_2));
+//		System.out.println("No check point device ==> " + device.init_compute());
+		
+		/* Compute data size transmit on the network */
+//		System.out.println("Heuristic version 1 transimt size ==> " + transmit_size(f, heu_cp_layer, r));
+		ans.append(transmit_size(f, heu_cp_layer, r));
+		ans.append(',');
+//		System.out.println("Heuristic version 2 transimt size ==> " + transmit_size(f, heu_cp_layer_2, r));
+		
+		/* Compute random choose check point number */
+		RandomCP rand_cp = new RandomCP(server, layer, r, pb, lc, cc, bw, com, f);
+//		System.out.println("Random choose check point number ==> " + rand_cp.compute());
+		ans.append(rand_cp.compute());
+		ans.append(',');
+		
+		/* Compute random choose layer */
+		RandomLayer rand_layer = new RandomLayer(layer, r, pb, lc, cc, bw, com, f);
+		for(int i=2; i<=random_server_num; i++) {
+//			System.out.println("Random choose " + i + " layer ==> " + rand_layer.compute(i, random_server_num));
+			ans.append(rand_layer.compute(i, random_server_num));
+			ans.append(',');
+		}
+		ans.append('\n');
+		
+		try {
+			FileWriter output = new FileWriter(filename,true);
+			output.write(ans.toString());
+			output.close();
+		}catch (Exception e) {
+			// TODO: handle exception
+		}
 		
 	}
 	
@@ -286,7 +312,7 @@ public class Main {
 	    cbin.map_to_list(map, result);
 	}
 	
-	public static void find_opt(List<Double> tmp_ls, List<Table> table, int version){
+	public static void find_opt(List<Double> tmp_ls, List<Table> table, int version, int layer, int server){
 		double min = Double.MAX_VALUE;
 		int tmp = 0;
 		for(int i=0; i<tmp_ls.size(); i++) {
@@ -384,7 +410,17 @@ public class Main {
 			
 		}
 		
-//		return cp_layer;
 	}
 
+	public static double transmit_size(double f, List<Integer> cp_layer, List<Double> r) {
+		double size = 0.0;
+		for(int i=1; i<cp_layer.size()-1; i++) {
+			double tmp = 1.0;
+			for(int j=1; j<=cp_layer.get(i); j++) {
+				tmp = tmp * r.get(j);
+			}
+			size = size + f*tmp;
+		}
+		return size;
+	}
 }

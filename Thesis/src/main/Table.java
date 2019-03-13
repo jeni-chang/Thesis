@@ -124,7 +124,7 @@ public class Table {
 	
 	@Override
 	public String toString() {
-		return String.format("R(%d, %d, %d)", L, S, C);
+		return String.format("R(%d %d %d)", L, S, C);
 	}
 	
 }

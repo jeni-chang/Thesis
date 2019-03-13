@@ -1,13 +1,14 @@
 package main;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class VGG16 {
+	// fixed data
 	private List<Double> pb = new ArrayList<>();
 	private List<Double> neuron = new ArrayList<>();
 	private List<Double> channel = new ArrayList<>();
@@ -16,6 +17,10 @@ public class VGG16 {
 	private List<Double> cp_FLOPS = new ArrayList<>();
 	private List<Double> params = new ArrayList<>();
 	private List<Double> cp_params = new ArrayList<>();
+	// random data
+	private List<Double> com = new ArrayList<>();
+	private List<Double> bw = new ArrayList<>();
+	private List<Double> sp = new ArrayList<>();
 	
 	private double input_width;
 	private double input_height;
@@ -47,29 +52,6 @@ public class VGG16 {
 		this.channel.add(1.0);
 		this.channel.add(1.0);
 		
-//		this.pb.add(0.0);
-//		this.pb.add(0.0); // input layer
-//		this.pb.add(0.669);
-//		this.pb.add(0.681);
-//		this.pb.add(0.688);
-//		this.pb.add(0.689);
-//		this.pb.add(0.3288);
-//		this.pb.add(0.3024);
-//		this.pb.add(0.276);
-//		this.pb.add(0.2504);
-//		this.pb.add(0.2262);
-//		this.pb.add(0.2043);
-//		this.pb.add(0.1853);
-//		this.pb.add(0.17);
-//		this.pb.add(0.159);
-//		this.pb.add(0.159);
-//		this.pb.add(0.1473);
-//		this.pb.add(0.1452);
-//		this.pb.add(0.1445);
-//		this.pb.add(0.1446);
-//		this.pb.add(0.1447);
-//		this.pb.add(0.1452);
-//		this.pb.add(1.0);
 		FileReader fr = new FileReader("VGG.txt");
 		BufferedReader br = new BufferedReader(fr);
         try {
@@ -82,6 +64,7 @@ public class VGG16 {
 			e.printStackTrace();
 		}
         fr.close();
+//        System.out.println(pb);
         
 		
 		this.input_width = in_width;
@@ -94,8 +77,9 @@ public class VGG16 {
 
 	}
 	
+	// compute fixed data
 	public void data_compute() {
-		// compute each layer's neurons
+		/* compute each layer's neurons */
 		this.neuron.add(0.0);
 		for(int i=1; i<=22; i++) {
 			if(i>=1 && i<=3) this.neuron.add(input_width * input_height * this.channel.get(i));
@@ -109,14 +93,14 @@ public class VGG16 {
 			else if(i==22) this.neuron.add(1000.0);
 		}
 		
-		// compute data size change
+		/* compute data size change */
 		this.ratio.add(1.0);
 		this.ratio.add(1.0); // input layer
 		for(int i=2; i<=21; i++) this.ratio.add(this.neuron.get(i)/this.neuron.get(i-1));
 		this.ratio.add(0.0); // output layer
 //		System.out.println(ratio);
 		
-		// compute FLOPS
+		/* compute FLOPS */
 		this.FLOPS.add(0.0);
 		this.FLOPS.add(0.0); // input layer
 		for(int i=2; i<=19; i++) { // convolution layer
@@ -130,7 +114,7 @@ public class VGG16 {
 		for(int i=2; i<=22; i++) this.FLOPS.set(i, this.FLOPS.get(i)/1000000000); // convert to GFLOPS
 //		System.out.println(FLOPS);
 		
-		// compute parameters (layer size)
+		/* compute parameters (layer size) */
 		this.params.add(0.0);
 		this.params.add(0.0); // input layer
 		for(int i=2; i<=19; i++) {
@@ -142,22 +126,58 @@ public class VGG16 {
 		}
 		for(int i=20; i<=22; i++) this.params.add(this.neuron.get(i-1)*this.neuron.get(i)); // fully connected
 		for(int i=1; i<=22; i++) this.params.set(i, this.params.get(i)*32/1000000); // convert to Mbits 
-		System.out.println(params);
+//		System.out.println(params);
 		
-		// compute check point FLOPS
+		/* compute check point FLOPS */
 		this.cp_FLOPS.add(0.0);
 		this.cp_FLOPS.add(0.0); // input layer
 		for(int i=2; i<=21; i++) this.cp_FLOPS.add(this.FLOPS.get(22));
 		this.cp_FLOPS.add(0.0); // output layer
 		for(int i=2; i<=22; i++) this.cp_FLOPS.set(i, this.cp_FLOPS.get(i)/1000000000); // convert to GFLOPS
 		
-		//compute check point parameter (check point layer size)
+		/* compute check point parameter (check point layer size) */
 		this.cp_params.add(0.0);
 		this.cp_params.add(0.0);
 		for(int i=2; i<=21; i++) this.cp_params.add(this.params.get(22)); // add softmax layer
 		this.cp_params.add(0.0); // output layer
 		for(int i=1; i<=22; i++) this.cp_params.set(i, this.cp_params.get(i)*32/1000000); // convert to Mbits
 	}
+	
+	public void random_data_compute(int server) {
+		Random r = new Random();
+		double tmp = 0.0;
+		/* generate bandwidth (Mbits) */
+		this.bw.add(0.0);
+		for(int i=1; i<server; i++) {
+			do{
+				tmp = r.nextGaussian()*0.4;
+				tmp = Math.abs(tmp);
+			}while(tmp>=1.0 || tmp==0.0 || tmp<0.25);
+			if(i==1) this.bw.add(1000*tmp); // device
+			else this.bw.add(8000*tmp); // MEC server
+		}
+		this.bw.add(Double.MAX_VALUE); // Cloud server
+//		System.out.println(bw);
+		
+		/* generate compute capability (GFLOPS) */
+		this.com.add(0.0);
+		this.com.add(100.0); // device
+		for(int i=2; i<=server; i++) {
+			do{
+				tmp = r.nextGaussian()*0.4;
+				tmp = Math.abs(tmp);
+			}while(tmp>=1.0 || tmp==0.0);
+			this.com.add(10000*tmp); // MEC server and Cloud server
+		}
+//		System.out.println(com);
+		
+		/* generate space capacity (Mbits) */
+		this.sp.add(0.0);
+		this.sp.add(50000.0);
+		for(int i=2; i<=server; i++) this.sp.add(1000000.0);
+//		System.out.println(sp);
+	}
+	
 	
 	public List<Double> get_ratio(){
 		return this.ratio;
@@ -183,6 +203,17 @@ public class VGG16 {
 		return this.pb;
 	}
 	
+	public List<Double> get_bw(){
+		return this.bw;
+	}
+	
+	public List<Double> get_com(){
+		return this.com;
+	}
+	
+	public List<Double> get_sp(){
+		return this.sp;
+	}
 	
 
 }

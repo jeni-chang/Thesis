@@ -1,7 +1,6 @@
 package main;
 
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.List;
 
 public class DP {
@@ -27,7 +26,7 @@ public class DP {
 //				break;
 //			}
 //		}
-		if(loc<0)System.out.println("ffffffffff==> " + loc);
+//		if(loc<0)System.out.println("Resursive Error!!! ==> " + loc);
 		if(table.get(loc-1).getcheck()) return;
 		table.get(loc-1).setcheck(true);
 		

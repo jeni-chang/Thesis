@@ -23,15 +23,12 @@ public class Cloud {
 	public double compute(List<Integer> cp) {
 		List<Integer> cp_layer = cp;
 		List<Double> remain_ls = new ArrayList<>();
-		double cost = 0;
-		double ans = 0;
+		double cost = 0.0;
+		double ans = 0.0;
 		
 		// compute expectation value probability
 		double remain = 1;
-		for(int i=1; i<cp_layer.size(); i++) {
-			
-//			for(int j=0; j<i; j++) remain = remain * (1-pb.get(cp_layer.get(j)));
-			
+		for(int i=1; i<cp_layer.size(); i++) {			
 			remain_ls.add(remain*pb.get(cp_layer.get(i)));
 			remain *=(1- pb.get(cp_layer.get(i)));
 		}
