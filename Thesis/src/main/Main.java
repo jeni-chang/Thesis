@@ -16,21 +16,39 @@ public class Main {
 	static Table opt = null;
 	static Table heu_opt = null;
 	static Table heu_opt_2 = null;
-	
+	static boolean run_on_compute = true;
+	static boolean run_choose = false;
 
 	static boolean compute_opt = false;
+	
 	
 	public static void main(String[] args) throws IOException {
 		// TODO Auto-generated method stub
 		List<Table> table = new ArrayList<>();
 		
-		int layer = 22;
-//		int server = 6;
-//		double choose = 4;
-//		int random_server_num = 1;
-		int server = Integer.parseInt(args[0]);
-		double choose = Double.parseDouble(args[1]);
-		int random_server_num = Integer.parseInt(args[2]);
+		int layer;
+		int server;
+		double choose;
+		int random_server_num;
+		int random_seed = 0;
+		int model; // 1:VGG, 2:AlexNet, 3:YOLO
+		
+		if(run_on_compute) {
+			layer = 22;
+			server = 8;
+			choose = 4;
+			random_server_num = 1;
+			model = 1;
+		}
+		else {
+			layer = Integer.parseInt(args[0]);
+			server = Integer.parseInt(args[1]);
+			choose = Double.parseDouble(args[2]);
+			random_server_num = Integer.parseInt(args[3]);
+			model = Integer.parseInt(args[4]);
+		}
+		if(run_choose)random_seed = Integer.parseInt(args[5]);
+
 		
 		double pipeline_threshold = 100000; // sec
 		
@@ -50,26 +68,59 @@ public class Main {
 
 		double width = 2240;
 		double height = 2240;
-		double f = width*height*3*24; // width * height * RGB * bits 
+		double f = width*height*3*24/100.0; // width * height * RGB * bits * jpg encoding rate
 		f = f / 1000000; // convert to Mbits
 		
-		VGG16 vgg = new VGG16(width, height, 3, 3);
-		vgg.data_compute();
-		lc = vgg.get_FLOPS(); // GFLOPS
-		cc = vgg.get_cp_FLOPS(); // GFLOPS
-		r = vgg.get_ratio();
-		ls = vgg.get_params(); // Mbits
-		cs = vgg.get_cp_params(); // Mbits
-		pb = vgg.get_pb();
-		vgg.random_data_compute(server);
-		bw = vgg.get_bw(); // Mbits
-		com = vgg.get_com(); // GFLOPS
-		sp = vgg.get_sp(); // Mbits
-		
+		if(model == 1) {
+			VGG16 vgg = new VGG16(width, height, 3, 3);
+			vgg.data_compute();
+			lc = vgg.get_FLOPS(); // GFLOPS
+			cc = vgg.get_cp_FLOPS(); // GFLOPS
+			r = vgg.get_ratio();
+			ls = vgg.get_params(); // Mbits
+			cs = vgg.get_cp_params(); // Mbits
+			pb = vgg.get_pb();
+			vgg.random_data_compute(server, random_seed);
+			bw = vgg.get_bw(); // Mbits
+			com = vgg.get_com(); // GFLOPS
+			sp = vgg.get_sp(); // Mbits
+		}
+		else if(model == 2) {
+			AlexNet alexnet = new AlexNet(width, height);
+			alexnet.data_compute();
+			lc = alexnet.get_FLOPS(); // GFLOPS
+			cc = alexnet.get_cp_FLOPS(); // GFLOPS
+			r = alexnet.get_ratio();
+			ls = alexnet.get_params(); // Mbits
+			cs = alexnet.get_cp_params(); // Mbits
+			pb = alexnet.get_pb();
+			alexnet.random_data_compute(server, random_seed);
+			bw = alexnet.get_bw(); // Mbits
+			com = alexnet.get_com(); // GFLOPS
+			sp = alexnet.get_sp(); // Mbits
+		}
+		else {
+			YOLO yolo = new YOLO(width, height);
+			yolo.data_compute();
+			lc = yolo.get_FLOPS(); // GFLOPS
+			cc = yolo.get_cp_FLOPS(); // GFLOPS
+			r = yolo.get_ratio();
+			ls = yolo.get_params(); // Mbits
+			cs = yolo.get_cp_params(); // Mbits
+			pb = yolo.get_pb();
+			yolo.random_data_compute(server, random_seed);
+			bw = yolo.get_bw(); // Mbits
+			com = yolo.get_com(); // GFLOPS
+			sp = yolo.get_sp(); // Mbits
+		}
+
 
 		/* Write file*/
-//		String filename = "TEST.csv";
-		String filename = args[3];
+		String filename;
+		
+		if(run_on_compute)filename = "TEST.csv";
+		else filename = args[6];
+		
 		StringBuilder ans = new StringBuilder();
 		
 		String listString = "";
@@ -183,6 +234,10 @@ public class Main {
 			ans.append(heu_opt_ls.get(0));
 			ans.append(',');
 		}
+		
+//		for(Table t : table) {
+//			if(t.getL() == 12 && t.getS() == 5 && t.getC() == 3) {System.out.println(t.getPb(1));}
+//		}
 
 		find_opt(opt_id_ls, table, 0, layer, server);
 //		System.out.println("opt id ls ==> " + opt_id_ls);
@@ -204,6 +259,8 @@ public class Main {
 		
 //		System.out.print("opt heu_opt_1_R ==> " + heu_opt_2);
 //		System.out.printf(" ==> %.8f \n", heu_opt_2.getAns(2));
+//		ans.append(heu_opt_2.getAns(2));
+//		ans.append(',');
 		
 		List<Table> cp_loc = new ArrayList<>();
 		List<Table> heu_cp_loc = new ArrayList<>();
@@ -261,8 +318,8 @@ public class Main {
 //		System.out.println("No check point device ==> " + device.init_compute());
 		
 		/* Compute data size transmit on the network */
-//		System.out.println("Heuristic version 1 transimt size ==> " + transmit_size(f, heu_cp_layer, r));
-		ans.append(transmit_size(f, heu_cp_layer, r));
+//		System.out.println("Heuristic version 1 transimt size ==> " + transmit_size(f, heu_cp_loc, r));
+		ans.append(transmit_size(f, heu_cp_loc, r));
 		ans.append(',');
 //		System.out.println("Heuristic version 2 transimt size ==> " + transmit_size(f, heu_cp_layer_2, r));
 		
@@ -412,15 +469,16 @@ public class Main {
 		
 	}
 
-	public static double transmit_size(double f, List<Integer> cp_layer, List<Double> r) {
+	public static double transmit_size(double f, List<Table> cp_layer, List<Double> r) {
 		double size = 0.0;
-		for(int i=1; i<cp_layer.size()-1; i++) {
-			double tmp = 1.0;
-			for(int j=1; j<=cp_layer.get(i); j++) {
-				tmp = tmp * r.get(j);
-			}
-			size = size + f*tmp;
+		Set<Integer> l_tmp = new HashSet<>();
+		for(Table t : cp_layer) l_tmp.add(t.getL());
+		for(int i: l_tmp) {
+			double ratio = 1.0;
+			for(int j=0; j<=i; j++) ratio = ratio * r.get(j);
+			size = size + f*ratio;
 		}
+//		System.out.println("Transmit data layer ==> " + l_tmp);
 		return size;
 	}
 }

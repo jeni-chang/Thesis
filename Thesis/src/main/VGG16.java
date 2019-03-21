@@ -64,8 +64,7 @@ public class VGG16 {
 			e.printStackTrace();
 		}
         fr.close();
-//        System.out.println(pb);
-        
+//        System.out.println(pb);        
 		
 		this.input_width = in_width;
 		this.input_height = in_height;
@@ -73,8 +72,6 @@ public class VGG16 {
 		this.filter_height = f_height;
 		
 //		System.out.println(this.pb);
-		
-
 	}
 	
 	// compute fixed data
@@ -112,6 +109,7 @@ public class VGG16 {
 		}
 		for(int i=20; i<=22; i++) this.FLOPS.add(2*this.neuron.get(i-1)*this.neuron.get(i)); // fully connected
 		for(int i=2; i<=22; i++) this.FLOPS.set(i, this.FLOPS.get(i)/1000000000); // convert to GFLOPS
+//		this.FLOPS.set(9, 20.0);
 //		System.out.println(FLOPS);
 		
 		/* compute parameters (layer size) */
@@ -131,9 +129,11 @@ public class VGG16 {
 		/* compute check point FLOPS */
 		this.cp_FLOPS.add(0.0);
 		this.cp_FLOPS.add(0.0); // input layer
-		for(int i=2; i<=21; i++) this.cp_FLOPS.add(this.FLOPS.get(22));
+//		for(int i=2; i<=21; i++) this.cp_FLOPS.add(this.FLOPS.get(22));
+//		for(int i=2; i<=21; i++) this.cp_FLOPS.add(22.0-i*i/25);
+		for(int i=2; i<=21; i++) this.cp_FLOPS.add(22.0/i);
 		this.cp_FLOPS.add(0.0); // output layer
-		for(int i=2; i<=22; i++) this.cp_FLOPS.set(i, this.cp_FLOPS.get(i)/1000000000); // convert to GFLOPS
+//		for(int i=2; i<=22; i++) this.cp_FLOPS.set(i, this.cp_FLOPS.get(i)/1000000000); // convert to GFLOPS
 		
 		/* compute check point parameter (check point layer size) */
 		this.cp_params.add(0.0);
@@ -143,8 +143,69 @@ public class VGG16 {
 		for(int i=1; i<=22; i++) this.cp_params.set(i, this.cp_params.get(i)*32/1000000); // convert to Mbits
 	}
 	
-	public void random_data_compute(int server) {
-		Random r = new Random();
+	public void random_data_compute(int server, int seed) throws IOException {
+		
+//		if(Main.run_choose) {
+//			// read bandwidth data
+//			FileReader fr = new FileReader("BW.txt");
+//			BufferedReader br = new BufferedReader(fr);
+//	        try {
+//				while (br.ready()) {
+//					this.bw.add(Double.parseDouble(br.readLine()));
+//				}
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//	        this.bw.add(Double.MAX_VALUE);
+//	        fr.close();
+//	        
+//	        // read compute capability data
+//	        fr = new FileReader("COM.txt");
+//	        br = new BufferedReader(fr);
+//	        try {
+//				while (br.ready()) {
+//					this.com.add(Double.parseDouble(br.readLine()));
+//				}
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//	        fr.close();
+//		}
+//		else {
+//			Random r = new Random();
+//			double tmp = 0.0;
+//			/* generate bandwidth (Mbits) */
+//			this.bw.add(0.0);
+//			for(int i=1; i<server; i++) {
+//				do{
+//					tmp = r.nextGaussian()*0.4;
+//					tmp = Math.abs(tmp);
+//				}while(tmp>=1.0 || tmp==0.0 || tmp<0.25);
+//				if(i==1) this.bw.add(1000*tmp); // device
+//				else this.bw.add(8000*tmp); // MEC server
+//			}
+//			this.bw.add(Double.MAX_VALUE); // Cloud server
+////			System.out.println(bw);
+//			
+//			/* generate compute capability (GFLOPS) */
+//			this.com.add(0.0);
+//			this.com.add(50.0); // device
+//			for(int i=2; i<=server; i++) {
+//				do{
+//					tmp = r.nextGaussian()*0.4;
+//					tmp = Math.abs(tmp);
+//				}while(tmp>=1.0 || tmp==0.0);
+//				this.com.add(1000*tmp+100*i); // MEC server and Cloud server
+//			}
+////			System.out.println(com);
+//		}
+		
+		Random r;
+		if(Main.run_choose) r = new Random(seed);
+		else r = new Random();
+		
 		double tmp = 0.0;
 		/* generate bandwidth (Mbits) */
 		this.bw.add(0.0);
@@ -161,15 +222,15 @@ public class VGG16 {
 		
 		/* generate compute capability (GFLOPS) */
 		this.com.add(0.0);
-		this.com.add(100.0); // device
+		this.com.add(50.0); // device
 		for(int i=2; i<=server; i++) {
 			do{
 				tmp = r.nextGaussian()*0.4;
 				tmp = Math.abs(tmp);
 			}while(tmp>=1.0 || tmp==0.0);
-			this.com.add(10000*tmp); // MEC server and Cloud server
+			this.com.add(1000*tmp+100*i); // MEC server and Cloud server
 		}
-//		System.out.println(com);
+		
 		
 		/* generate space capacity (Mbits) */
 		this.sp.add(0.0);

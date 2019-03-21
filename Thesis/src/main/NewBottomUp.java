@@ -273,7 +273,8 @@ public class NewBottomUp {
 	}
 	
 	public void set_ans(List<Double> pb_ls, Table t, Table tmp, double ans, double cost, double pb, double ctime, double ttime, int version) {
-		for(double d: pb_ls) {
+//		for(double d: pb_ls) {
+		for(double d: tmp.getPb(version).keySet()) {
 			List<Double> ls = tmp.getPb(version).get(d);
 			if(t.getC()-tmp.getC() == 0) {
 				ans = ls.get(0);

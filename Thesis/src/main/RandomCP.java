@@ -37,6 +37,7 @@ public class RandomCP {
 		// generate check point number
 		Random r = new Random();
 		cp_num = r.nextInt(server);
+//		System.out.println("Random CP number ==>" + cp_num);
 		
 		// generate check point layer
 		for(int i=2; i<layer; i++) random_tmp.add(i);
