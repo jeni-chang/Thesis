@@ -2,6 +2,7 @@ package main;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,8 @@ public class YOLO {
 	private List<Double> com = new ArrayList<>();
 	private List<Double> bw = new ArrayList<>();
 	private List<Double> sp = new ArrayList<>();
+	
+	private List<Double> com_tmp = new ArrayList<>(); // for cloud opt
 	
 	private double input_width;
 	private double input_height;
@@ -175,23 +178,48 @@ public class YOLO {
 		/* compute check point FLOPS */
 		this.cp_FLOPS.add(0.0);
 		this.cp_FLOPS.add(0.0); // input layer
-		for(int i=2; i<=32; i++) this.cp_FLOPS.add(32.0/i);
+		for(int i=2; i<=31; i++) this.cp_FLOPS.add(16.0/i);
 		this.cp_FLOPS.add(0.0); // output layer
 //			for(int i=2; i<=22; i++) this.cp_FLOPS.set(i, this.cp_FLOPS.get(i)/1000000000); // convert to GFLOPS
 		
 		/* compute check point parameter (check point layer size) */
 		this.cp_params.add(0.0);
 		this.cp_params.add(0.0);
-		for(int i=2; i<=32; i++) this.cp_params.add(this.params.get(12)); // add softmax layer
+		for(int i=2; i<=31; i++) this.cp_params.add(this.params.get(32)); // add softmax layer
 		this.cp_params.add(0.0); // output layer
 		for(int i=1; i<=32; i++) this.cp_params.set(i, this.cp_params.get(i)*32/1000000); // convert to Mbits
+		
+//		String filename = "YOLO_data.csv";
+//		StringBuilder ans = new StringBuilder();
+//		for(double d : ratio) {
+//			ans.append(d);
+//			ans.append(',');
+//		}
+//		ans.append('\n');
+//		for(double d : FLOPS) {
+//			ans.append(d);
+//			ans.append(',');
+//		}
+//		ans.append('\n');
+//		for(double d : cp_FLOPS) {
+//			ans.append(d);
+//			ans.append(',');
+//		}
+//		ans.append('\n');
+//		try {
+//			FileWriter output = new FileWriter(filename,true);
+//			output.write(ans.toString());
+//			output.close();
+//		}catch (Exception e) {
+//			// TODO: handle exception
+//		}
 	}
 	
 	
 	public void random_data_compute(int server, int seed) throws IOException {
-		Random r;
-		if(Main.run_choose) r = new Random(seed);
-		else r = new Random();
+		Random r= new Random(seed);
+//		if(Main.run_choose) r = new Random(seed);
+//		else r = new Random();
 		
 		double tmp = 0.0;
 		/* generate bandwidth (Mbits) */
@@ -202,26 +230,39 @@ public class YOLO {
 				tmp = Math.abs(tmp);
 			}while(tmp>=1.0 || tmp==0.0 || tmp<0.25);
 			if(i==1) this.bw.add(1000*tmp); // device
-			else this.bw.add(8000*tmp); // MEC server
+			else this.bw.add(5000*tmp); // MEC server
 		}
 		this.bw.add(Double.MAX_VALUE); // Cloud server
-//			System.out.println(bw);
+		if(Main.cloud_opt) {
+			for(int i=1; i<=server; i++) {
+				this.bw.set(i, Double.MAX_VALUE);
+			}
+		}
+//		System.out.println(bw);
 		
 		/* generate compute capability (GFLOPS) */
 		this.com.add(0.0);
-		this.com.add(50.0); // device
+		this.com.add(100.0); // device
 		for(int i=2; i<=server; i++) {
 			do{
 				tmp = r.nextGaussian()*0.4;
 				tmp = Math.abs(tmp);
 			}while(tmp>=1.0 || tmp==0.0);
-			this.com.add(1000*tmp+100*i); // MEC server and Cloud server
+//			this.com.add(1000*tmp+100*i); // MEC server and Cloud server
+			this.com.add(100.0+200*i);
 		}
-//			System.out.println(com);
+		for(double d : com) this.com_tmp.add(d); // for cloud opt
+		if(Main.cloud_opt) {
+			for(int i=1; i<=server; i++) {
+				this.com.set(i, 1000*tmp+100*server);
+			}
+		}
+//		System.out.println(com);
 		
 		/* generate space capacity (Mbits) */
 		this.sp.add(0.0);
-		this.sp.add(50000.0);
+		if(Main.cloud_opt)this.sp.add(1000000.0);
+		else this.sp.add(50000.0);
 		for(int i=2; i<=server; i++) this.sp.add(1000000.0);
 //			System.out.println(sp);
 	}
@@ -256,6 +297,10 @@ public class YOLO {
 	
 	public List<Double> get_com(){
 		return this.com;
+	}
+	
+	public List<Double> get_com_tmp(){
+		return this.com_tmp;
 	}
 	
 	public List<Double> get_sp(){

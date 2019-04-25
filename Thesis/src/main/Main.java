@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import main.PbCombin;
@@ -16,9 +17,9 @@ public class Main {
 	static Table opt = null;
 	static Table heu_opt = null;
 	static Table heu_opt_2 = null;
-	static boolean run_on_compute = true;
-	static boolean run_choose = false;
-
+	static boolean run_on_compute = false;
+//	static boolean run_choose = false;
+	static boolean cloud_opt = false;
 	static boolean compute_opt = false;
 	
 	
@@ -32,13 +33,16 @@ public class Main {
 		int random_server_num;
 		int random_seed = 0;
 		int model; // 1:VGG, 2:AlexNet, 3:YOLO
+		double use_rate;
 		
 		if(run_on_compute) {
-			layer = 22;
+			layer = 32;
 			server = 8;
-			choose = 4;
+			choose = 5;
 			random_server_num = 1;
-			model = 1;
+			model = 3;
+			random_seed = 1;
+			use_rate = 0.4;
 		}
 		else {
 			layer = Integer.parseInt(args[0]);
@@ -46,8 +50,11 @@ public class Main {
 			choose = Double.parseDouble(args[2]);
 			random_server_num = Integer.parseInt(args[3]);
 			model = Integer.parseInt(args[4]);
+			random_seed = Integer.parseInt(args[5]);
+//			use_rate = Double.parseDouble(args[6]);
+			
 		}
-		if(run_choose)random_seed = Integer.parseInt(args[5]);
+//		if(run_choose)random_seed = Integer.parseInt(args[5]);
 
 		
 		double pipeline_threshold = 100000; // sec
@@ -65,6 +72,8 @@ public class Main {
 		List<Double> ls = new ArrayList<>();
 		List<Double> cs = new ArrayList<>();
 		List<Double> sp = new ArrayList<>();
+		List<Double> bw_tmp = new ArrayList<>(); // for compute cloud opt
+		List<Double> com_tmp = new ArrayList<>(); // for compute cloud opt
 
 		double width = 2240;
 		double height = 2240;
@@ -84,6 +93,8 @@ public class Main {
 			bw = vgg.get_bw(); // Mbits
 			com = vgg.get_com(); // GFLOPS
 			sp = vgg.get_sp(); // Mbits
+			
+			com_tmp = vgg.get_com_tmp();
 		}
 		else if(model == 2) {
 			AlexNet alexnet = new AlexNet(width, height);
@@ -98,6 +109,8 @@ public class Main {
 			bw = alexnet.get_bw(); // Mbits
 			com = alexnet.get_com(); // GFLOPS
 			sp = alexnet.get_sp(); // Mbits
+			
+			com_tmp = alexnet.get_com_tmp();
 		}
 		else {
 			YOLO yolo = new YOLO(width, height);
@@ -112,9 +125,16 @@ public class Main {
 			bw = yolo.get_bw(); // Mbits
 			com = yolo.get_com(); // GFLOPS
 			sp = yolo.get_sp(); // Mbits
+			
+			com_tmp = yolo.get_com_tmp();
 		}
-
-
+		
+		for(int i=1; i<bw.size()-1; i++) bw.set(i, bw.get(i)*0.4);
+		for(int i=2; i<com.size(); i++) com.set(i, com.get(i)*0.4);
+		com.set(server, 840.0);
+		
+		
+		
 		/* Write file*/
 		String filename;
 		
@@ -203,9 +223,10 @@ public class Main {
 		List<Double> opt_ls = new ArrayList<>();
 		List<Double> heu_opt_ls = new ArrayList<>();
 		List<Double> heu_opt_ls_2 = new ArrayList<>();
-		for(int j=1; j<=server; j++) {
+//		for(int j=1; j<=server; j++) {
 			for(Table t: table) {
-				if(t.getL() == layer && t.getS() == server && t.getC() == j) {
+//				if(t.getID()==21)System.out.println(t.toString());
+				if(t.getL() == layer  && t.getS() == server && t.getC() == 1) {
 //					System.out.print(t.toString() + "===>");
 //					System.out.println(t.getPb(0));
 //					
@@ -230,10 +251,10 @@ public class Main {
 //			System.out.println(j + " check point Heuristic Optimal Solution Version 2 ==> " + heu_opt_ls_2.get(0));
 //			
 //			System.out.printf("%d check point Optimal Solution ==> %.8f \n", j, opt_ls.get(0));
-			
+//			System.out.printf("Optimal Solution ==> %.8f \n", heu_opt_ls.get(1));
 			ans.append(heu_opt_ls.get(0));
 			ans.append(',');
-		}
+//		}
 		
 //		for(Table t : table) {
 //			if(t.getL() == 12 && t.getS() == 5 && t.getC() == 3) {System.out.println(t.getPb(1));}
@@ -259,8 +280,8 @@ public class Main {
 		
 //		System.out.print("opt heu_opt_1_R ==> " + heu_opt_2);
 //		System.out.printf(" ==> %.8f \n", heu_opt_2.getAns(2));
-//		ans.append(heu_opt_2.getAns(2));
-//		ans.append(',');
+		ans.append(heu_opt_2.getAns(2));
+		ans.append(',');
 		
 		List<Table> cp_loc = new ArrayList<>();
 		List<Table> heu_cp_loc = new ArrayList<>();
@@ -282,6 +303,7 @@ public class Main {
 		for(Table t: heu_cp_loc) listString = listString + t.toString();
 		ans.append(listString);
 		ans.append(',');
+//		System.out.println(listString);
 		
 		if(heu_opt_2.getAns(2) != 0) {
 			get_cp_layer(heu_cp_loc_2, heu_cp_layer_2, Main.heu_opt_2, table, 2);
@@ -299,6 +321,12 @@ public class Main {
 //		System.out.println("Heuristic version 1 Ans ==> " + heu_cp_layer);
 //		System.out.println("Heuristic version 2 Ans ==> " + heu_cp_layer_2);
 		
+//		/* Compute Cloud only optimal*/
+//		if(Main.cloud_opt) {
+//			ans.append(heu_opt.getAns(1) + compute_cloud_opt(bw_tmp, f, heu_cp_loc, r, server, random_seed));
+//			ans.append(',');
+//		}
+				
 		/* Cloud only */
 		Cloud cloud = new Cloud(pb, lc, cc, bw , com, f);
 //		System.out.println("Opt cloud ==> " + cloud.compute(cp_layer));
@@ -329,14 +357,70 @@ public class Main {
 		ans.append(rand_cp.compute());
 		ans.append(',');
 		
+//		listString = "";
+//		for(double d: heu_pb_1) listString = listString + String.valueOf(d) + " -> ";
+//		ans.append(listString);
+//		ans.append(',');
+//		
+//		listString = "";
+//		for(double d: heu_pb_2) listString = listString + String.valueOf(d) + " -> ";
+//		ans.append(listString);
+//		ans.append(',');
+		
 		/* Compute random choose layer */
 		RandomLayer rand_layer = new RandomLayer(layer, r, pb, lc, cc, bw, com, f);
 		for(int i=2; i<=random_server_num; i++) {
-//			System.out.println("Random choose " + i + " layer ==> " + rand_layer.compute(i, random_server_num));
+//				System.out.println("Random choose " + i + " layer ==> " + rand_layer.compute(i, random_server_num));
 			ans.append(rand_layer.compute(i, random_server_num));
 			ans.append(',');
+		}	
+		
+		/* Compute put check point from head */
+		PutCPHead cp_head = new PutCPHead(layer, r, pb, lc, cc, bw, com_tmp, f);
+		for(int i=2; i<=random_server_num; i++) {
+			ans.append(cp_head.compute(i, random_server_num));
+			ans.append(',');
 		}
+		
+		/* Compute put check point from tail */
+		PutCPTail cp_tail = new PutCPTail(layer, r, pb, lc, cc, bw, com_tmp, f);
+
+		for(int i=2; i<=random_server_num; i++) {
+			ans.append(cp_tail.compute(i, random_server_num));
+			ans.append(',');
+		}
+		
+		/* Compute only one check point on device */
+		double cost = 0.0;
+		for(int i=1; i<=layer; i++)	cost = cost + lc.get(i);
+		cost = cost + cc.get(layer);
+		cost = cost / com.get(1);
+		ans.append(cost);
+		ans.append(',');
+		
+		/* Compute only one check point on cloud */
+		double tran_cost = 0.0;
+		for(int i=1; i<server; i++)	tran_cost = tran_cost + f/bw.get(i);
+		cost = 0.0;
+		for(int i=1; i<=layer; i++)	cost = cost + lc.get(i);
+		cost = cost + cc.get(layer);
+//		cost = cost / 1200.0;
+		cost = cost / com.get(server);
+		cost = cost + tran_cost;
+		
+		ans.append(cost);
+		ans.append(',');
+		
+		/* Compute transmission time to Cloud */
+//		System.out.println(transmit_time_cloud(f, server, bw));
+		ans.append(transmit_time_cloud(f, server, bw));
+		ans.append(',');
+		/* Compute transmission time in OPT*/
+		//System.out.println(transmit_time_opt(f, heu_cp_loc, r, bw));
+		ans.append(transmit_time_opt(f, heu_cp_loc, r, bw));
 		ans.append('\n');
+		
+		
 		
 		try {
 			FileWriter output = new FileWriter(filename,true);
@@ -471,14 +555,78 @@ public class Main {
 
 	public static double transmit_size(double f, List<Table> cp_layer, List<Double> r) {
 		double size = 0.0;
-		Set<Integer> l_tmp = new HashSet<>();
-		for(Table t : cp_layer) l_tmp.add(t.getL());
-		for(int i: l_tmp) {
+//		System.out.println("Transmit data layer ==> " + cp_layer);
+//		Set<Integer> l_tmp = new HashSet<>();
+//		for(Table t : cp_layer) l_tmp.add(t.getL());
+		for(Table t: cp_layer) {
 			double ratio = 1.0;
-			for(int j=0; j<=i; j++) ratio = ratio * r.get(j);
+			for(int j=0; j<=t.getL(); j++) ratio = ratio * r.get(j);
 			size = size + f*ratio;
 		}
-//		System.out.println("Transmit data layer ==> " + l_tmp);
+//		System.out.println("Transmit data layer ==> " + size);
 		return size;
+	}
+	
+	public static double transmit_time_opt(double f, List<Table> cp_layer, List<Double> r, List<Double> bw) {
+		double time = 0.0;
+//		System.out.println("Transmit data layer ==> " + cp_layer);
+//		Set<Integer> l_tmp = new HashSet<>();
+//		for(Table t : cp_layer) l_tmp.add(t.getL());
+		for(Table t: cp_layer) {
+			double ratio = 1.0;
+			for(int j=0; j<=t.getL(); j++) ratio = ratio * r.get(j);
+			time = time + f*ratio/bw.get(t.getS());
+		}
+//		System.out.println("Transmit data layer ==> " + size);
+		return time;
+	}
+	
+	public static double transmit_time_cloud(double f, int server, List<Double> bw) {
+		double time = 0.0;
+		for(int i=1; i<server; i++) time = time + f/bw.get(i);
+//		System.out.println("Transmit data layer ==> " + size);
+		return time;
+	}
+	
+	public static double compute_cloud_opt(List<Double> bw_tmp, double f, List<Table> cp_layer, List<Double> r, int server, int seed) {
+		double size = 0.0;
+		double ttime = 0.0;
+		double tmp = 0.0;
+		Random rand = new Random(seed);
+		
+		bw_tmp.add(0.0);
+		for(int i=1; i<server; i++) {
+			do{
+				tmp = rand.nextGaussian()*0.4;
+				tmp = Math.abs(tmp);
+			}while(tmp>=1.0 || tmp==0.0 || tmp<0.25);
+			if(i==1) bw_tmp.add(1000*tmp); // device
+			else bw_tmp.add(5000*tmp); // MEC server
+		}
+		
+		bw_tmp.add(Double.MAX_VALUE); // Cloud server
+		for(Table t: cp_layer) {
+			double ratio = 1.0;
+			for(int j=0; j<=t.getL(); j++) ratio = ratio * r.get(j);
+			size = size + f*ratio;
+			ttime = ttime + size/bw_tmp.get(t.getS());
+		}
+//		System.out.println("Cloud opt bandwidth ==> " + bw_tmp);
+		
+//		String filename = "BW.csv";
+//		StringBuilder ans = new StringBuilder();
+//		String listString = "";
+//		
+//		for(double d: bw_tmp) listString = listString + String.valueOf(d) + " -> ";
+//		ans.append(listString);
+//		ans.append('\n');
+//		try {
+//			FileWriter output = new FileWriter(filename,true);
+//			output.write(ans.toString());
+//			output.close();
+//		}catch (Exception e) {
+//			// TODO: handle exception
+//		}
+		return ttime;
 	}
 }
