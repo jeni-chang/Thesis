@@ -244,6 +244,8 @@ public class VGG16 {
 			}while(tmp>=1.0 || tmp==0.0 || tmp<0.25);
 			if(i==1) this.bw.add(1000*tmp); // device
 			else this.bw.add(5000*tmp); // MEC server
+//			else this.bw.add(2300.0+150*i); // MEC server
+//			else this.bw.add(2500.0); // MEC server
 		}
 		this.bw.add(Double.MAX_VALUE); // Cloud server
 		if(Main.cloud_opt) {

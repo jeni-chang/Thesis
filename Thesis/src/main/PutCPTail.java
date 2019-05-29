@@ -26,19 +26,19 @@ public class PutCPTail {
 		this.f = f;
 	}
 	
-	public double compute(int cp_num, int server) {
+	public double compute(int cp_num, int server, List<Integer> cp_layer) {
 		double ans = 0.0;
 		List<Integer> random_tmp = new ArrayList<>();
 		List<Double> remain_ls = new ArrayList<>();
-		List<Integer> cp_layer = new ArrayList<>();
+//		List<Integer> cp_layer = new ArrayList<>();
 		List<Integer> cp_server = new ArrayList<>();
 		
-		// generate check point layer
-		for(int i=2; i<layer; i++) random_tmp.add(i);
-		Collections.shuffle(random_tmp);
-		for(int i=1; i<cp_num; i++) cp_layer.add(random_tmp.get(i-1));
-		cp_layer.add(layer);
-		Collections.sort(cp_layer);
+//		// generate check point layer
+//		for(int i=2; i<layer; i++) random_tmp.add(i);
+//		Collections.shuffle(random_tmp);
+//		for(int i=1; i<cp_num; i++) cp_layer.add(random_tmp.get(i-1));
+//		cp_layer.add(layer);
+//		Collections.sort(cp_layer);
 		
 		// generate server from end to compute
 		for(int i=server; i>server-cp_num; i--) cp_server.add(i);

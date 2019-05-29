@@ -16,8 +16,10 @@ public class NewBottomUp {
 	private List<Double> sp = new ArrayList<>();
 	private double f; 
 	private double threshold;
+	private int server;
+	private int layer;
 	
-	public NewBottomUp(List<Table> table, List<Double> pb, List<Double> lc, List<Double> cc, List<Double> r, List<Double> bw, List<Double> com, Double f, List<Double> ls, List<Double> cs, List<Double> sp, double threshold) {
+	public NewBottomUp(List<Table> table, List<Double> pb, List<Double> lc, List<Double> cc, List<Double> r, List<Double> bw, List<Double> com, Double f, List<Double> ls, List<Double> cs, List<Double> sp, double threshold, int l, int s) {
 		this.table = table;
 		this.pb =pb;
 		this.lc = lc;
@@ -30,6 +32,8 @@ public class NewBottomUp {
 		this.cs = cs;
 		this.sp = sp;
 		this.threshold = threshold;
+		this.server = s;
+		this.layer = l;
 	}
 	
 	public void compute() {
@@ -56,9 +60,11 @@ public class NewBottomUp {
 							ratio = ratio * r.get(i); 
 						}
 						ttime = f*ratio / bw.get(1);
+//						ttime = f*ratio / bw.get(2*layer);
 						
 						if(t.getC() == 0) {
 							ctime = ctime / com.get(1);
+//							ctime = ctime / com.get(layer);
 							
 							ans = 0.0;
 							cost = ctime + ttime;
@@ -66,6 +72,7 @@ public class NewBottomUp {
 						}
 						else if(t.getC() == 1) {
 							ctime = (ctime+cc.get(t.getL())) / com.get(1);
+//							ctime = (ctime+cc.get(t.getL())) / com.get(layer);
 							
 							ans = this.pb.get(t.getL())*ctime;
 							cost = ctime + ttime;
@@ -89,7 +96,8 @@ public class NewBottomUp {
 						Table tmp = this.table.get(i);
 						if(DP.check(t.getL(), t.getS(), t.getC(), tmp.getL(), tmp.getS(), tmp.getC())) {
 							if(t.getS()==tmp.getS()+1 && tmp.getC()+1>=t.getC()) {
-								if(tmp.get_capa_check() && check_capacity(t, tmp) && check_pipeline(t, tmp)) {
+//								if(tmp.get_capa_check() && check_capacity(t, tmp) && check_pipeline(t, tmp)) {
+								if(check_pipeline(t, tmp)) {
 									// init
 									//******************
 //									System.out.print("==> " + tmp.toString());
@@ -232,15 +240,16 @@ public class NewBottomUp {
 	public boolean check_pipeline(Table t) {
 		double ctime = 0;
 		double ratio = 1;
+		double ttime = 0;
 		
 		for(int i=0; i<=t.getL(); i++) {
 			ctime = ctime + lc.get(i);
 			ratio = ratio * r.get(i);
 		}
 		ctime = ctime / com.get(t.getS());
-		ctime = ctime + ratio/bw.get(t.getS());
-		
-		if(ctime <= threshold) return true;
+//		ctime = ctime + ratio/bw.get(t.getS());
+		ttime = ratio/bw.get(t.getS());
+		if(ctime <= threshold ) return true;
 		else return false;
 		
 	}

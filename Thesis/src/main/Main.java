@@ -13,17 +13,18 @@ import java.util.Set;
 import main.PbCombin;
 
 public class Main {
-	
 	static Table opt = null;
 	static Table heu_opt = null;
 	static Table heu_opt_2 = null;
-	static boolean run_on_compute = false;
+	static boolean run_on_compute = true;
 //	static boolean run_choose = false;
 	static boolean cloud_opt = false;
 	static boolean compute_opt = false;
 	
 	
 	public static void main(String[] args) throws IOException {
+		long time1, time2;
+		time1 = System.currentTimeMillis();
 		// TODO Auto-generated method stub
 		List<Table> table = new ArrayList<>();
 		
@@ -33,16 +34,18 @@ public class Main {
 		int random_server_num;
 		int random_seed = 0;
 		int model; // 1:VGG, 2:AlexNet, 3:YOLO
-		double use_rate;
+		double use_rate = 0.0;
+		boolean more_cp = false;
 		
 		if(run_on_compute) {
-			layer = 32;
-			server = 8;
+			layer = 22;
+			server = 3;
 			choose = 5;
 			random_server_num = 1;
-			model = 3;
-			random_seed = 1;
+			model = 1;
+			random_seed = 13;
 			use_rate = 0.4;
+			more_cp = false;
 		}
 		else {
 			layer = Integer.parseInt(args[0]);
@@ -57,7 +60,7 @@ public class Main {
 //		if(run_choose)random_seed = Integer.parseInt(args[5]);
 
 		
-		double pipeline_threshold = 100000; // sec
+		double pipeline_threshold = 1000; // sec
 		
 		
 		
@@ -75,6 +78,8 @@ public class Main {
 		List<Double> bw_tmp = new ArrayList<>(); // for compute cloud opt
 		List<Double> com_tmp = new ArrayList<>(); // for compute cloud opt
 
+		List<Double> bw2 = new ArrayList<>(); // for more check point on one server
+		List<Double> com2 = new ArrayList<>(); // for more check point on one server
 		double width = 2240;
 		double height = 2240;
 		double f = width*height*3*24/100.0; // width * height * RGB * bits * jpg encoding rate
@@ -90,8 +95,8 @@ public class Main {
 			cs = vgg.get_cp_params(); // Mbits
 			pb = vgg.get_pb();
 			vgg.random_data_compute(server, random_seed);
-			bw = vgg.get_bw(); // Mbits
-			com = vgg.get_com(); // GFLOPS
+			bw2 = vgg.get_bw(); // Mbits
+			com2 = vgg.get_com(); // GFLOPS
 			sp = vgg.get_sp(); // Mbits
 			
 			com_tmp = vgg.get_com_tmp();
@@ -106,8 +111,8 @@ public class Main {
 			cs = alexnet.get_cp_params(); // Mbits
 			pb = alexnet.get_pb();
 			alexnet.random_data_compute(server, random_seed);
-			bw = alexnet.get_bw(); // Mbits
-			com = alexnet.get_com(); // GFLOPS
+			bw2 = alexnet.get_bw(); // Mbits
+			com2 = alexnet.get_com(); // GFLOPS
 			sp = alexnet.get_sp(); // Mbits
 			
 			com_tmp = alexnet.get_com_tmp();
@@ -122,16 +127,45 @@ public class Main {
 			cs = yolo.get_cp_params(); // Mbits
 			pb = yolo.get_pb();
 			yolo.random_data_compute(server, random_seed);
-			bw = yolo.get_bw(); // Mbits
-			com = yolo.get_com(); // GFLOPS
+			bw2 = yolo.get_bw(); // Mbits
+			com2 = yolo.get_com(); // GFLOPS
 			sp = yolo.get_sp(); // Mbits
 			
 			com_tmp = yolo.get_com_tmp();
 		}
+//		for(int i=1; i<bw.size()-1; i++) bw.set(i, bw.get(i)*3.0);
+//		for(int i=2; i<com.size(); i++) com.set(i, com.get(i)*0.4);
+//		com.set(1, 250.0);
+//		com.set(server-1, 300.0);
+//		com.set(server, 370.0);
+		System.out.println(com2);
+		System.out.println(bw2);
+		if(more_cp) {
+			for(int i=0; i<bw2.size(); i++) {
+				for(int j=1; j<=layer; j++) {
+					if(j==layer) bw.add(bw2.get(i));
+					else bw.add(0.0);
+				}
+			}
+			
+			for(int i=0; i<com2.size(); i++) {
+				for(int j=1; j<=layer; j++) com.add(com2.get(i));
+			}
+			
+			for(int i=2*layer; i<com.size(); i++) com.set(i, com.get(i)*use_rate);
+			for(int i=1; i<bw.size()-1; i++) bw.set(i, bw.get(i)*use_rate);
+		}
+		else{
+			for(int i=0; i<bw2.size(); i++) bw.add(bw2.get(i));
+			for(int i=0; i<com2.size(); i++) com.add(com2.get(i));
+			
+			for(int i=2; i<com.size(); i++) com.set(i, com.get(i)*use_rate);
+			for(int i=1; i<bw.size()-1; i++) bw.set(i, bw.get(i)*use_rate);
+		}
 		
-		for(int i=1; i<bw.size()-1; i++) bw.set(i, bw.get(i)*0.4);
-		for(int i=2; i<com.size(); i++) com.set(i, com.get(i)*0.4);
-		com.set(server, 840.0);
+		System.out.println(com);
+		System.out.println(bw);
+		
 		
 		
 		
@@ -172,7 +206,7 @@ public class Main {
 		List<Integer> tmp = new ArrayList<>();
 		for(int i=1; i<layer; i++) tmp.add(i);
 		Collections.shuffle(tmp);
-		for(int i=1; i<=choose-1; i++) heu_pb_1.add(pb.get(tmp.get(i)));
+		for(int i=1; i<=choose; i++) heu_pb_1.add(pb.get(tmp.get(i-1)));
 		heu_pb_1.add(1.0);
 //		System.out.println("heu_pb_1 ==> " + heu_pb_1);
 
@@ -212,7 +246,7 @@ public class Main {
 		for(int i=1; i<= server; i++) DP.recursive(layer, server, i);
 //		System.out.println("End Recursive!!!!!!!");
 		
-		NewBottomUp btmup = new NewBottomUp(table, pb, lc, cc , r, bw, com, f, ls , cs, sp, pipeline_threshold);
+		NewBottomUp btmup = new NewBottomUp(table, pb, lc, cc , r, bw, com, f, ls , cs, sp, pipeline_threshold, layer, server*layer);
 		btmup.init_pb(server);
 		btmup.compute();
 		
@@ -223,10 +257,10 @@ public class Main {
 		List<Double> opt_ls = new ArrayList<>();
 		List<Double> heu_opt_ls = new ArrayList<>();
 		List<Double> heu_opt_ls_2 = new ArrayList<>();
-//		for(int j=1; j<=server; j++) {
+		for(int j=1; j<=server; j++) {
 			for(Table t: table) {
 //				if(t.getID()==21)System.out.println(t.toString());
-				if(t.getL() == layer  && t.getS() == server && t.getC() == 1) {
+				if(t.getL() == layer  && t.getS() == server && t.getC() == j) {
 //					System.out.print(t.toString() + "===>");
 //					System.out.println(t.getPb(0));
 //					
@@ -254,7 +288,8 @@ public class Main {
 //			System.out.printf("Optimal Solution ==> %.8f \n", heu_opt_ls.get(1));
 			ans.append(heu_opt_ls.get(0));
 			ans.append(',');
-//		}
+//			System.out.println(heu_opt_ls.get(0));
+		}
 		
 //		for(Table t : table) {
 //			if(t.getL() == 12 && t.getS() == 5 && t.getC() == 3) {System.out.println(t.getPb(1));}
@@ -280,8 +315,8 @@ public class Main {
 		
 //		System.out.print("opt heu_opt_1_R ==> " + heu_opt_2);
 //		System.out.printf(" ==> %.8f \n", heu_opt_2.getAns(2));
-		ans.append(heu_opt_2.getAns(2));
-		ans.append(',');
+//		ans.append(heu_opt_2.getAns(2));
+//		ans.append(',');
 		
 		List<Table> cp_loc = new ArrayList<>();
 		List<Table> heu_cp_loc = new ArrayList<>();
@@ -367,27 +402,60 @@ public class Main {
 //		ans.append(listString);
 //		ans.append(',');
 		
-		/* Compute random choose layer */
-		RandomLayer rand_layer = new RandomLayer(layer, r, pb, lc, cc, bw, com, f);
-		for(int i=2; i<=random_server_num; i++) {
-//				System.out.println("Random choose " + i + " layer ==> " + rand_layer.compute(i, random_server_num));
-			ans.append(rand_layer.compute(i, random_server_num));
-			ans.append(',');
-		}	
+//		/* Compute random choose layer */
+//		RandomLayer rand_layer = new RandomLayer(layer, r, pb, lc, cc, bw, com, f);
+//		for(int i=2; i<=random_server_num; i++) {
+//			ans.append(rand_layer.compute(i, random_server_num));
+//			ans.append(',');
+//		}	
+//		
+//		/* Compute put check point from head */
+//		PutCPHead cp_head = new PutCPHead(layer, r, pb, lc, cc, bw, com_tmp, f);
+//		for(int i=2; i<=random_server_num; i++) {
+//			ans.append(cp_head.compute(i, random_server_num));
+//			ans.append(',');
+//		}
+//		
+//		/* Compute put check point from tail */
+//		PutCPTail cp_tail = new PutCPTail(layer, r, pb, lc, cc, bw, com_tmp, f);
+//		for(int i=2; i<=random_server_num; i++) {
+//			ans.append(cp_tail.compute(i, random_server_num));
+//			ans.append(',');
+//		}
 		
-		/* Compute put check point from head */
+		Random rand = new Random();
+		int one_tmp = rand.nextInt(server)+1;
+		double one_cost= 0.0;
+		for(int i=1; i<=layer; i++) one_cost = one_cost + lc.get(i)/com.get(one_tmp);
+		for(int i=1; i<one_tmp; i++) one_cost = one_cost + f/bw.get(i);
+		ans.append(one_cost);
+		ans.append(',');
+		ans.append("START");
+		ans.append(',');
+		RandomLayer rand_layer = new RandomLayer(layer, r, pb, lc, cc, bw, com_tmp, f);
 		PutCPHead cp_head = new PutCPHead(layer, r, pb, lc, cc, bw, com_tmp, f);
-		for(int i=2; i<=random_server_num; i++) {
-			ans.append(cp_head.compute(i, random_server_num));
-			ans.append(',');
-		}
-		
-		/* Compute put check point from tail */
 		PutCPTail cp_tail = new PutCPTail(layer, r, pb, lc, cc, bw, com_tmp, f);
-
 		for(int i=2; i<=random_server_num; i++) {
-			ans.append(cp_tail.compute(i, random_server_num));
+			
+			List<Integer> random_tmp = new ArrayList<>();
+			List<Integer> cp_layer_tmp = new ArrayList<>();
+			
+			for(int j=2; j<layer; j++) random_tmp.add(j);
+			Collections.shuffle(random_tmp);
+			for(int j=1; j<i; j++) cp_layer_tmp.add(random_tmp.get(j-1));
+			cp_layer_tmp.add(layer);
+			Collections.sort(cp_layer_tmp);
+			
+			ans.append(rand_layer.compute(i, random_server_num, cp_layer_tmp));
 			ans.append(',');
+			ans.append(cp_head.compute(i, random_server_num, cp_layer_tmp));
+			ans.append(',');
+			ans.append(cp_tail.compute(i, random_server_num, cp_layer_tmp));
+			ans.append(',');
+//			System.out.println(rand_layer.compute(i, random_server_num, cp_layer_tmp));
+//			System.out.println(cp_head.compute(i, random_server_num, cp_layer_tmp));
+//			System.out.println(cp_tail.compute(i, random_server_num, cp_layer_tmp));
+			
 		}
 		
 		/* Compute only one check point on device */
@@ -420,7 +488,8 @@ public class Main {
 		ans.append(transmit_time_opt(f, heu_cp_loc, r, bw));
 		ans.append('\n');
 		
-		
+		time2 = System.currentTimeMillis();
+		System.out.println("cost：" + (time2-time1) + "ms");
 		
 		try {
 			FileWriter output = new FileWriter(filename,true);
